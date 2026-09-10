@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Kabukicho After Dark — Tour Companion</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0d0c10;
+    --panel:#19151c;
+    --paper:#f3ead9;
+    --paper-dim:#e4d9c4;
+    --magenta:#ff3d81;
+    --cyan:#2fe6d1;
+    --amber:#f6b93b;
+    --line: rgba(243,234,217,0.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--ink);color:var(--paper);font-family:'Source Serif 4', serif;}
+  body{-webkit-font-smoothing:antialiased;}
+
+  /* ---------- header ---------- */
+  header{
+    padding:18px 18px 14px;
+    border-bottom:1px solid var(--line);
+    position:relative;
+    overflow:hidden;
+  }
+  header::before{
+    content:"";
+    position:absolute; inset:0;
+    background:
+      radial-gradient(circle at 12% -10%, rgba(255,61,129,0.25), transparent 45%),
+      radial-gradient(circle at 90% 120%, rgba(47,230,209,0.18), transparent 40%);
+    pointer-events:none;
+  }
+  .kicker{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.14em;
+    color:var(--cyan);
+    display:flex; align-items:center; gap:8px;
+    margin-bottom:6px;
+  }
+  .kicker .dot{width:6px;height:6px;border-radius:50%;background:var(--magenta);box-shadow:0 0 8px var(--magenta);animation:pulse 1.8s infinite;}
+  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+  h1{
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:700;
+    font-size:clamp(30px,8vw,42px);
+    line-height:0.95;
+    margin:0 0 6px;
+    letter-spacing:0.01em;
+    text-transform:uppercase;
+    position:relative;
+  }
+  h1 span{color:var(--magenta);}
+  .subhead{
+    font-size:14px;
+    color:var(--paper-dim);
+    max-width:52ch;
+    line-height:1.5;
+    position:relative;
+    margin:0;
+  }
+  .host-line{
+    margin-top:10px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    color:var(--paper-dim);
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .host-line b{color:var(--amber); font-weight:600;}
+  .disclaimer{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    line-height:1.6;
+    color:var(--paper-dim);
+    background:rgba(246,185,59,0.08);
+    border:1px solid rgba(246,185,59,0.35);
+    padding:8px 10px;
+    margin-top:12px;
+    position:relative;
+  }
+  .disclaimer b{color:var(--amber);}
+
+  /* ---------- filter chips ---------- */
+  .filters{
+    display:flex; gap:8px; overflow-x:auto;
+    padding:12px 18px; border-bottom:1px solid var(--line);
+    scrollbar-width:none;
+  }
+  .filters::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:0 0 auto;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    letter-spacing:0.03em;
+    padding:6px 10px;
+    border:1px solid var(--line);
+    color:var(--paper-dim);
+    background:transparent;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .chip.active{
+    border-color:var(--magenta);
+    color:var(--ink);
+    background:var(--magenta);
+    font-weight:600;
+  }
+
+  /* ---------- map ---------- */
+  #map{
+    height:48vh;
+    min-height:280px;
+    width:100%;
+    filter: saturate(0.15) brightness(0.75) contrast(1.05);
+    border-bottom:1px solid var(--line);
+  }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip{
+    background:var(--panel); color:var(--paper);
+    border-radius:0; border:1px solid var(--magenta);
+  }
+  .leaflet-popup-content{font-family:'Source Serif 4',serif; font-size:13px;}
+  .pin-num{
+    background:var(--magenta);
+    color:var(--ink);
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:700;
+    width:26px;height:26px;
+    display:flex;align-items:center;justify-content:center;
+    border-radius:50%;
+    font-size:14px;
+    border:2px solid var(--ink);
+    box-shadow:0 0 0 2px var(--magenta), 0 0 10px rgba(255,61,129,0.7);
+  }
+  .locate-btn{
+    position:relative;
+    margin:10px 18px 0;
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    color:var(--cyan);
+    background:transparent;
+    border:1px solid var(--cyan);
+    padding:6px 10px;
+    cursor:pointer;
+  }
+  .locate-btn:active{background:rgba(47,230,209,0.15);}
+
+  /* ---------- case list ---------- */
+  .list-heading{
+    font-family:'Barlow Condensed', sans-serif;
+    text-transform:uppercase;
+    font-size:13px;
+    letter-spacing:0.12em;
+    color:var(--paper-dim);
+    padding:16px 18px 4px;
+  }
+  .case-list{padding:6px 14px 28px;}
+  .case-card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-left:3px solid var(--magenta);
+    padding:14px 14px 12px;
+    margin:10px 4px;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .case-card.open{border-left-color:var(--cyan); background:#1e2422;}
+  .case-card:active{background:#221a25;}
+  .case-top{display:flex; align-items:baseline; justify-content:space-between; gap:10px;}
+  .case-num{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px; color:var(--amber);
+  }
+  .case-title{
+    font-family:'Barlow Condensed', sans-serif;
+    font-weight:600;
+    font-size:20px;
+    letter-spacing:0.01em;
+    margin:2px 0 6px;
+    color:var(--paper);
+  }
+  .case-intro{
+    font-size:14.5px;
+    line-height:1.55;
+    color:var(--paper-dim);
+    margin:0 0 10px;
+  }
+  .tags{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px;}
+  .tag{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.04em;
+    color:var(--ink);
+    background:var(--paper-dim);
+    padding:3px 7px;
+  }
+  .status-badge{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10px;
+    letter-spacing:0.05em;
+    padding:3px 7px;
+    margin-bottom:10px;
+    display:inline-block;
+  }
+  .status-badge.legend{ color:var(--amber); border:1px solid var(--amber); background:rgba(246,185,59,0.1); }
+  .status-badge.verified{ color:var(--cyan); border:1px solid var(--cyan); background:rgba(47,230,209,0.08); }
+  .status-badge.screen{ color:var(--magenta); border:1px solid var(--magenta); background:rgba(255,61,129,0.08); }
+  .case-detail{
+    display:none;
+    border-top:1px dashed var(--line);
+    margin-top:8px;
+    padding-top:10px;
+    font-size:14.5px;
+    line-height:1.6;
+    color:var(--paper);
+  }
+  .case-card.open .case-detail{display:block;}
+  .links-row{display:flex; flex-wrap:wrap; gap:10px; margin-top:12px;}
+  .link-btn{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    color:var(--ink);
+    background:var(--cyan);
+    text-decoration:none;
+    padding:6px 9px;
+    display:inline-flex; align-items:center; gap:5px;
+  }
+  .link-btn.yt{background:var(--magenta);}
+  .link-btn:active{filter:brightness(0.9);}
+
+  footer{
+    padding:20px 18px 40px;
+    border-top:1px solid var(--line);
+    font-family:'JetBrains Mono', monospace;
+    font-size:11px;
+    color:var(--paper-dim);
+    line-height:1.7;
+  }
+  footer b{color:var(--amber);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="kicker"><span class="dot"></span> FIELD GUIDE · SHINJUKU, TOKYO</div>
+  <h1>Kabukicho <span>After Dark</span></h1>
+  <p class="subhead">A walking companion for the "True Crime Tokyo &amp; the Real Tokyo Vice" tour — tap a pin or a case file below for the brief, the tags, and where to read or watch more.</p>
+  <div class="host-line">
+    <span>HOST: <b>Vivian</b>, Kabukicho crime historian</span>
+    <span>·</span>
+    <span>RUNTIME: ~2 HR</span>
+    <span>·</span>
+    <span>MEET: Tokyu Kabukicho Tower</span>
+  </div>
+  <p class="disclaimer">⚠ Several entries below are recounted from the tour itself and from Kabukicho nightlife folklore, not from news archives or court records. Anything I couldn't independently verify is marked <b>UNVERIFIED — TOUR ACCOUNT</b>. Treat those as atmosphere, not documented fact, until they're sourced or dropped.</p>
+</header>
+
+<div class="filters" id="filters"></div>
+
+<div id="map"></div>
+<button class="locate-btn" id="locateBtn">📍 Show my position on the map</button>
+
+<div class="list-heading">Case files — tap to expand</div>
+<div class="case-list" id="caseList"></div>
+
+<div class="list-heading">Explore more — on screen</div>
+<div class="case-list" id="screenList"></div>
+
+<footer>
+  <div><b>WORK IN PROGRESS.</b> Stories come from tour memory and general local history — several are flagged unverified above. Swap in Vivian's actual details, sourcing, and photos stop by stop and this becomes the real thing.</div>
+  <div style="margin-top:8px;">Data lives in one array near the top of the script — easiest way to keep improving it a bit at a time.</div>
+  <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--line);">This page discusses suicide. If it's affecting you personally: <b>TELL Japan Lifeline</b> offers free, confidential support in English at 03-5774-0992 (tell-lifeline.jp). In Japanese, <b>Yorisoi Hotline</b> is reachable at 0120-279-338.</div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* =========================================================
+   SPOT DATA — edit / add / reorder here as the tour evolves.
+   Each spot: id, name, lat, lng, tags[], intro, detail, links[]
+   ========================================================= */
+const SPOTS = [
+  {
+    id: 1,
+    name: "Tokyu Kabukicho Tower",
+    lat: 35.6952, lng: 139.7028,
+    status: "verified",
+    tags: ["Meeting point", "Modern Kabukicho"],
+    intro: "The tour's starting point — a 2023 entertainment tower marking the neighborhood's latest reinvention.",
+    detail: "Opened in 2023, this vertical entertainment complex sits on the former site of the Kabukicho Ward with cinemas, a live venue, hotel, and food hall stacked above the old grid of bars and clubs. It's a useful place to start because it frames the contrast the tour is built on: the polished, tourist-facing Kabukicho of today built directly on top of decades of much rougher history underneath.",
+    links: [
+      { label: "Wikipedia", url: "https://en.wikipedia.org/wiki/Tokyu_Kabukicho_Tower" },
+      { label: "YouTube", url: "https://www.youtube.com/results?search_query=Tokyu+Kabukicho+Tower", yt:true }
+    ]
+  },
+  {
+    id: 2,
+    name: "APA Hotel Shinjuku Kabukicho Tower",
+    lat: 35.6959008, lng: 139.7012316,
+    status: "legend",
+    tags: ["Suicide site", "Toyoko Kids", "Local legend"],
+    intro: "Pointed out on the tour as a fall site with restricted upper-floor access — and steps from the real 'Toyoko Kids' phenomenon.",
+    detail: "Guides on this tour describe this stretch as the site of multiple fatal falls, with access to upper floors later restricted as a result. That kind of retrofit is genuinely common at tall Tokyo buildings after a death, but I have no confirmed record tying a specific count of incidents to this exact hotel, so hold the number loosely — it's tour narrative, not a cited statistic. What is well documented: since around 2018, at-risk and runaway teenagers — mostly girls, some still school-age — have gathered nightly in the alleys beside the nearby Shinjuku Toho Building. They're known as Tōyoko kids (トー横キッズ), and Japanese researchers and child-welfare groups link the phenomenon to family breakdown, bullying, and real exploitation risk from nearby nightlife and sex-industry recruiters, not to anything romantic. If you want to read further, go to the sourced links below rather than tour folklore.",
+    links: [
+      { label: "Wikipedia: Tōyoko kids", url: "https://en.wikipedia.org/wiki/Toyoko_kids" },
+      { label: "YouTube", url: "https://www.youtube.com/results?search_query=toyoko+kids+kabukicho+documentary", yt:true }
+    ]
+  },
+  {
+    id: 3,
+    name: "Site of the 2001 Kabukicho Building Fire",
+    lat: 35.6947, lng: 139.7038,
+    status: "verified",
+    tags: ["True crime", "1980–2025", "Fire safety"],
+    intro: "A multi-tenant nightlife building here burned in 2001, killing 44 people — one of Japan's deadliest building fires. The building itself is gone.",
+    detail: "The fire broke out in a small gaming arcade and mahjong parlor building packed with bars and clubs on the floors above, and spread fast through stairwells and emergency exits that had reportedly been used for storage. It became a national flashpoint on fire-safety enforcement in Japan's dense nightlife buildings and led to stricter inspections across similar districts. Two building managers were later convicted of professional negligence. The original building was demolished; if you're standing on the current footprint, you're looking at whatever's since been built in its place.",
+    links: [
+      { label: "Wikipedia", url: "https://en.wikipedia.org/wiki/2001_Kabukich%C5%8D_fire" },
+      { label: "YouTube", url: "https://www.youtube.com/results?search_query=2001+kabukicho+fire", yt:true }
+    ]
+  },
+  {
+    id: 4,
+    name: "Karaoke Building — the Affair Shooting",
+    lat: 35.6948015, lng: 139.7023,
+    status: "legend",
+    tags: ["Organised crime", "Local legend"],
+    intro: "Tour lore attached to a karaoke building on this block: an argument over an affair that's said to have ended in gunfire.",
+    detail: "As told on walking tours, an older organized-crime figure allegedly shot a younger associate here over a betrayal involving the younger man's wife, then fled on foot and was identified afterward from a convenience-store security camera on the street outside. I couldn't confirm this in any news archive, and Kabukicho's karaoke buildings change hands and tenants often, so this stays flagged as oral history rather than a documented case. It's a good example of how much of the neighborhood's true-crime reputation runs on stories passed between guides as much as on court records.",
+    links: [
+      { label: "Wikipedia: Yakuza", url: "https://en.wikipedia.org/wiki/Yakuza" },
+      { label: "YouTube", url: "https://www.youtube.com/results?search_query=kabukicho+yakuza+incidents", yt:true }
+    ]
+  },
+  {
+    id: 5,
+    name: "The Unsolved Love Hotel Case",
+    lat: 35.6935, lng: 139.7015,
+    status: "legend",
+    tags: ["Unsolved", "Urban legend"],
+    intro: "A recurring, unverified story: an unidentified killer linked to the district's love hotels, never caught.",
+    detail: "This is one of the murkier stories on Kabukicho true-crime tours — an alleged string of unsolved killings connected to the neighborhood's love hotels. One version adds that the killer might have been a police officer, which is the kind of detail that makes a great tour anecdote and a very unsafe claim to repeat as fact — I found no case matching this description in any credible news archive or court record. It's included here as an example of how urban legend and genuine unsolved-case anxiety blend together in a district with this much real crime history; if you or Vivian can point to an actual sourced case behind this, it belongs here with a citation instead of a hedge.",
+    links: [
+      { label: "Wikipedia: Love hotel", url: "https://en.wikipedia.org/wiki/Love_hotel" },
+      { label: "YouTube", url: "https://www.youtube.com/results?search_query=kabukicho+unsolved+murders", yt:true }
+    ]
+  },
+  {
+    id: 6,
+    name: "Coin Locker K-2352",
+    lat: 35.6967116, lng: 139.702534,
+    status: "legend",
+    tags: ["History", "Coin locker babies"],
+    intro: "A bank of coin lockers on the tour route, tied to Japan's real and unsettling history of infants abandoned in station lockers.",
+    detail: "Coin lockers became a genuine flashpoint in Japan in the 1970s–80s after a wave of abandoned-infant cases nationwide, grim enough that it inspired Ryu Murakami's novel 'Coin Locker Babies.' I have no confirmed record of a specific abandonment at this exact locker bank, but the broader phenomenon the tour is referencing is real and documented — worth reading into even if this particular locker's story can't be pinned down.",
+    links: [
+      { label: "Wikipedia: Coin Locker Babies (novel)", url: "https://en.wikipedia.org/wiki/Coin_Locker_Babies" },
+      { label: "YouTube", url: "https://www.youtube.com/results?search_query=coin+locker+babies+japan+history", yt:true }
+    ]
+  },
+  {
+    id: 7,
+    name: "Shinjuku Batting Center",
+    lat: 35.6966733, lng: 139.7044587,
+    status: "legend",
+    tags: ["Organised crime", "Local legend"],
+    intro: "A working batting center with a dark story attached on this tour: an alleged yakuza punishment carried out with pitching machines.",
+    detail: "The story told on the tour is that a yakuza group once tied someone to a chair here and used the batting cages to punish him. It's a vivid image, but I found no documented case matching it, and this is an ordinary, currently operating recreation business — so treat this one as neighborhood folklore rather than a confirmed incident, and be mindful that it's a real business behind the story.",
+    links: [
+      { label: "YouTube", url: "https://www.youtube.com/results?search_query=shinjuku+batting+center", yt:true }
+    ]
+  },
+  {
+    id: 8,
+    name: "Style-A Building — Tokyo Vice Scene",
+    lat: 35.6970781, lng: 139.7031881,
+    status: "screen",
+    tags: ["On screen", "Tokyo Vice"],
+    intro: "Pointed out on the tour as a backdrop tied to 'Tokyo Vice.'",
+    detail: "'Tokyo Vice' began as journalist Jake Adelstein's 2009 memoir about covering the Tokyo police and yakuza beat for the Yomiuri Shimbun, later adapted into an HBO Max crime drama (2022–2024) set largely in Kabukicho. Guides sometimes point out specific buildings as scene backdrops or as the kind of location the show was clearly drawing on — I can't independently confirm this exact building was used in filming, so take the connection as atmospheric rather than verified production trivia. See 'Explore More' below for the book and series.",
+    links: [
+      { label: "Wikipedia: Tokyo Vice (TV series)", url: "https://en.wikipedia.org/wiki/Tokyo_Vice_(TV_series)" },
+      { label: "YouTube trailer", url: "https://www.youtube.com/results?search_query=Tokyo+Vice+HBO+trailer", yt:true }
+    ]
+  },
+  {
+    id: 9,
+    name: "Tosho Building, B1F",
+    lat: 35.697096, lng: 139.7030027,
+    status: "legend",
+    tags: ["Suicide site", "On screen", "Local legend"],
+    intro: "Another stop the tour ties to both a fatal fall and a Tokyo Vice / yakuza-adjacent scene.",
+    detail: "As with the APA Hotel stop, this location is presented on the tour as the site of a suicide, and separately as having a Tokyo Vice or yakuza-story connection. I don't have independent confirmation of either claim — hold both loosely until they're sourced. This is a good entry to update first if Vivian can point to a specific case or a specific scene.",
+    links: [
+      { label: "YouTube", url: "https://www.youtube.com/results?search_query=Tokyo+Vice+Kabukicho+filming+locations", yt:true }
+    ]
+  },
+  {
+    id: 10,
+    name: "Golden Gai",
+    lat: 35.6939, lng: 139.7043,
+    status: "verified",
+    tags: ["Postwar history", "Bars", "Preservation"],
+    intro: "A six-alley maze of roughly 200 tiny bars, many seating six people or fewer, that survived Tokyo's redevelopment waves.",
+    detail: "Golden Gai grew out of the black-market stalls that clustered here after the war and later became a haven for writers, filmmakers, and artists. Developers have circled it for decades; it has repeatedly escaped demolition partly because of how tightly bar owners organized to resist buyouts. One additional story passed down among regulars: a bar owner is said to have died by suicide in one of the alley's famously low-ceilinged rooms. I have no source confirming this — in a district this gossip-dense, it's the kind of story that could be true of one specific bar or a floating legend attached to several over the years.",
+    links: [
+      { label: "Wikipedia", url: "https://en.wikipedia.org/wiki/Golden_Gai" },
+      { label: "YouTube", url: "https://www.youtube.com/results?search_query=golden+gai+shinjuku", yt:true }
+    ]
+  },
+  {
+    id: 11,
+    name: "Hanazono Shrine",
+    lat: 35.6936, lng: 139.7047,
+    status: "verified",
+    tags: ["Shrine", "Closing ritual", "On screen"],
+    intro: "Tour ends here — a Shinto shrine at the edge of the entertainment district, said by some guides to watch over it.",
+    detail: "Hanazono Shrine predates Kabukicho itself. Its Geinōsha annex is specifically dedicated to performers and entertainers, which is why nightlife workers from the surrounding clubs visit it. Some guides frame the shrine's guardian role as protection over the neighborhood's darker reputation — folklore rather than official shrine teaching, but a fitting note to end a true-crime tour on. Shinjuku also lent its name to 'Shinjuku Incident,' a 2009 crime drama about Chinese immigrant gangs clashing with yakuza in this world (not filmed here, but set in it) — see Explore More below.",
+    links: [
+      { label: "Wikipedia", url: "https://en.wikipedia.org/wiki/Hanazono_Shrine" },
+      { label: "YouTube", url: "https://www.youtube.com/results?search_query=hanazono+shrine+shinjuku", yt:true }
+    ]
+  }
+];
+
+/* Non-mapped "explore more" media, surfaced separately from the case files */
+const SCREEN_MEDIA = [
+  {
+    title: "Shinjuku Incident (2009)",
+    blurb: "A crime drama starring Jackie Chan as a Chinese immigrant drawn into gang conflict in Shinjuku, colliding with yakuza turf. Set in this world, not filmed on these exact streets.",
+    links: [
+      { label: "Wikipedia", url: "https://en.wikipedia.org/wiki/Shinjuku_Incident" },
+      { label: "YouTube trailer", url: "https://www.youtube.com/results?search_query=Shinjuku+Incident+2009+trailer", yt:true }
+    ]
+  },
+  {
+    title: "Tokyo Vice — book & series",
+    blurb: "Jake Adelstein's 2009 memoir of reporting the police and yakuza beat for the Yomiuri Shimbun, adapted into an HBO Max drama (2022–2024) largely set in Kabukicho.",
+    links: [
+      { label: "Wikipedia: book", url: "https://en.wikipedia.org/wiki/Tokyo_Vice" },
+      { label: "Wikipedia: TV series", url: "https://en.wikipedia.org/wiki/Tokyo_Vice_(TV_series)" },
+      { label: "YouTube trailer", url: "https://www.youtube.com/results?search_query=Tokyo+Vice+HBO+trailer", yt:true }
+    ]
+  }
+];
+
+/* ---------- filter chip setup ---------- */
+const allTags = [...new Set(SPOTS.flatMap(s => s.tags))];
+const filtersEl = document.getElementById('filters');
+let activeTag = null;
+
+function renderChips(){
+  filtersEl.innerHTML = '';
+  const allChip = document.createElement('button');
+  allChip.className = 'chip' + (activeTag===null ? ' active':'');
+  allChip.textContent = 'All';
+  allChip.onclick = () => { activeTag = null; renderChips(); renderAll(); };
+  filtersEl.appendChild(allChip);
+  allTags.forEach(tag => {
+    const chip = document.createElement('button');
+    chip.className = 'chip' + (activeTag===tag ? ' active':'');
+    chip.textContent = tag;
+    chip.onclick = () => { activeTag = tag; renderChips(); renderAll(); };
+    filtersEl.appendChild(chip);
+  });
+}
+
+/* ---------- map setup ---------- */
+const map = L.map('map', { zoomControl: true }).setView([35.6944, 139.7030], 16);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap &copy; CARTO',
+  maxZoom: 19
+}).addTo(map);
+
+let markers = {};
+let userMarker = null;
+
+function pinIcon(num){
+  return L.divIcon({
+    html: `<div class="pin-num">${num}</div>`,
+    className: '',
+    iconSize: [26,26],
+    iconAnchor: [13,13]
+  });
+}
+
+function buildMarkers(){
+  Object.values(markers).forEach(m => map.removeLayer(m));
+  markers = {};
+  visibleSpots().forEach(spot => {
+    const m = L.marker([spot.lat, spot.lng], { icon: pinIcon(spot.id) }).addTo(map);
+    m.bindPopup(`<b>${spot.id}. ${spot.name}</b><br>${spot.intro}`);
+    m.on('click', () => openCase(spot.id, true));
+    markers[spot.id] = m;
+  });
+}
+
+function visibleSpots(){
+  return activeTag ? SPOTS.filter(s => s.tags.includes(activeTag)) : SPOTS;
+}
+
+document.getElementById('locateBtn').onclick = () => {
+  if(!navigator.geolocation){ alert('Location isn\'t available in this browser.'); return; }
+  navigator.geolocation.getCurrentPosition(pos => {
+    const { latitude, longitude } = pos.coords;
+    if(userMarker) map.removeLayer(userMarker);
+    userMarker = L.circleMarker([latitude, longitude], {
+      radius: 8, color: '#2fe6d1', fillColor:'#2fe6d1', fillOpacity:0.9, weight:2
+    }).addTo(map).bindPopup('You are here').openPopup();
+    map.setView([latitude, longitude], 17);
+  }, () => alert('Could not get your location — check permissions.'));
+};
+
+/* ---------- case list ---------- */
+const listEl = document.getElementById('caseList');
+let openId = null;
+
+function renderList(){
+  listEl.innerHTML = '';
+  visibleSpots().forEach(spot => {
+    const card = document.createElement('div');
+    card.className = 'case-card' + (openId===spot.id ? ' open':'');
+    card.id = 'card-' + spot.id;
+    card.innerHTML = `
+      <div class="case-top">
+        <span class="case-num">FILE №${String(spot.id).padStart(2,'0')}</span>
+      </div>
+      <div class="case-title">${spot.name}</div>
+      <p class="case-intro">${spot.intro}</p>
+      ${spot.status === 'legend' ? '<span class="status-badge legend">⚠ UNVERIFIED — TOUR ACCOUNT</span><br>' : ''}
+      ${spot.status === 'screen' ? '<span class="status-badge screen">🎬 ON SCREEN</span><br>' : ''}
+      <div class="tags">${spot.tags.map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+      <div class="case-detail">
+        <p>${spot.detail}</p>
+        <div class="links-row">
+          ${spot.links.map(l => `<a class="link-btn${l.yt?' yt':''}" href="${l.url}" target="_blank" rel="noopener">${l.yt?'▶':'↗'} ${l.label}</a>`).join('')}
+        </div>
+      </div>
+    `;
+    card.querySelector('.case-title').onclick = () => openCase(spot.id, false);
+    card.querySelector('.case-top').onclick = () => openCase(spot.id, false);
+    card.querySelector('.case-intro').onclick = () => openCase(spot.id, false);
+    listEl.appendChild(card);
+  });
+}
+
+function openCase(id, fromMap){
+  openId = (openId === id) ? null : id;
+  renderList();
+  if(openId !== null){
+    const spot = SPOTS.find(s=>s.id===id);
+    if(!fromMap){
+      map.setView([spot.lat, spot.lng], 17, { animate:true });
+      markers[id] && markers[id].openPopup();
+    }
+    document.getElementById('card-'+id).scrollIntoView({ behavior:'smooth', block:'center' });
+  }
+}
+
+function renderAll(){
+  buildMarkers();
+  renderList();
+}
+
+renderChips();
+renderAll();
+
+/* ---------- explore more (screen media) ---------- */
+const screenListEl = document.getElementById('screenList');
+SCREEN_MEDIA.forEach((item, i) => {
+  const card = document.createElement('div');
+  card.className = 'case-card open';
+  card.style.borderLeftColor = 'var(--magenta)';
+  card.innerHTML = `
+    <div class="case-title">${item.title}</div>
+    <p class="case-intro">${item.blurb}</p>
+    <div class="links-row">
+      ${item.links.map(l => `<a class="link-btn${l.yt?' yt':''}" href="${l.url}" target="_blank" rel="noopener">${l.yt?'▶':'↗'} ${l.label}</a>`).join('')}
+    </div>
+  `;
+  screenListEl.appendChild(card);
+});
+</script>
+</body>
+</html>
