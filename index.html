@@ -475,8 +475,8 @@ function renderChips(){
 
 /* ---------- map setup ---------- */
 const map = L.map('map', { zoomControl: true }).setView([35.6944, 139.7030], 16);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; OpenStreetMap &copy; CARTO',
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors',
   maxZoom: 19
 }).addTo(map);
 
